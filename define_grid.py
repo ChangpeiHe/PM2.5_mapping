@@ -88,5 +88,7 @@ if __name__ == "__main__":
     NA_grid = Grid_define(res=0.1, shapefile="/WORK/genggn_work/hechangpei/PM2.5/politicalboundaries_shapefile/boundaries_p_2021_v3.shp")
     df_grid = NA_grid.model_grid
     print(df_grid)
+    print(NA_grid.lon_west, NA_grid.lon_east, NA_grid.lat_north, NA_grid.lat_south)
+    print(, , NA_grid.lat_north, NA_grid.lat_south)
 
 
