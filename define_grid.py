@@ -1,4 +1,3 @@
-import imp
 import numpy as np
 import geopandas as gpd
 import math
@@ -7,6 +6,7 @@ import os
 from rasterio.transform import from_origin
 import pandas as pd
 from rasterio.mask import mask
+from shapely.geometry import box
 
 class Grid_define:
     '''
@@ -16,11 +16,13 @@ class Grid_define:
     '''
 
     extent = (-180, -90, 180, 90)
-    tmp_dir = "/WORK/genggn_work/hechangpei/PM2.5/"
     crs = 'EPSG:4326'
 
-    def __init__(self, res, shapefile=None):
+    def __init__(self, res, start_day, end_day, tmp_dir, shapefile=None):
         self.res = res
+        self.start_day = start_day
+        self.end_day = end_day
+        self.tmp_dir = tmp_dir
         self.shapefile = shapefile
         if self.shapefile is None:
             self.extent = self.extent
@@ -31,16 +33,20 @@ class Grid_define:
             self.row_south = self.lat_to_row(self.lat_south)
         else:
             map_shapefile = gpd.read_file(self.shapefile)
-            map_shapefile = map_shapefile.to_crs(self.crs)
+            if map_shapefile.crs is None:
+                map_shapefile = map_shapefile.set_crs(self.crs)
+            else:
+                map_shapefile = map_shapefile.to_crs(self.crs)
             self.map_shapefile = map_shapefile
-            self.extent = map_shapefile.total_bounds
+            self.map_shapefile = self.clip_shapefile()
+            self.extent = self.map_shapefile.total_bounds
             self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.extent
             self.col_west = self.lon_to_col(self.lon_west)-1
             self.col_east = self.lon_to_col(self.lon_east)+1
             self.row_north = self.lat_to_row(self.lat_north)-1
             self.row_south = self.lat_to_row(self.lat_south)+1
-        self.row_list = list(range(self.col_west, self.col_east+1, 1))
-        self.col_list = list(range(self.row_north, self.row_south+1, 1))
+        self.row_list = list(range(self.row_north, self.row_south+1, 1))
+        self.col_list = list(range(self.col_west, self.col_east+1, 1))
 
     def lon_to_col(self, lon):
         col = math.ceil((lon+180)/self.res)
@@ -58,12 +64,20 @@ class Grid_define:
         lat = 90-self.res/2-(row-1)*self.res
         return lat
     
+    def clip_shapefile(self):
+        clip_box = box(-170, 23.5, -50, 83.5)
+        clip_box_gdf = gpd.GeoDataFrame(geometry=[clip_box], crs=self.map_shapefile.crs)
+        clipped_gdf = gpd.clip(self.map_shapefile, clip_box_gdf)
+        return clipped_gdf
+    
     @property
     def model_grid(self):
         if self.shapefile is None:
-            self.grid_col = [self.col_to_lon(lon) for lon in grid_lon]
-            self.grid_row = [self.lat_to_row(lat) for lat in grid_lat]
-            df_grid = pd.DataFrame({'row': self.grid_row, 'col': self.grid_col, 'lon': self.grid_lon, 'lat': self.grid_lat})
+            self.grid_col, self.grid_row  = np.meshgrid(self.col_list, self.row_list)
+            x = [self.col_to_lon(col) for col in self.col_list]
+            y = [self.row_to_lat(row) for row in self.row_list]
+            self.grid_lon, self.grid_row = np.meshgrid(x, y)
+            df_grid = pd.DataFrame({'row': self.grid_row.flatten(), 'col': self.grid_col.flatten(), 'lon': self.grid_lon.flatten(), 'lat': self.grid_lat.flatten()})
             return(df_grid)
         else:
             x = [self.col_to_lon(col) for col in self.col_list]
@@ -85,10 +99,10 @@ class Grid_define:
         
 
 if __name__ == "__main__":	
-    NA_grid = Grid_define(res=0.1, shapefile="/WORK/genggn_work/hechangpei/PM2.5/politicalboundaries_shapefile/boundaries_p_2021_v3.shp")
+    NA_grid = Grid_define(res=0.1, start_day='2023-04-01', end_day='2023-09-30', tmp_dir="C:/Users/hechangpei/Desktop/", shapefile="C:/Users/hechangpei/Desktop/US_CA/USA_CA.shp")
     df_grid = NA_grid.model_grid
+    print(NA_grid.start_day)
     print(df_grid)
     print(NA_grid.lon_west, NA_grid.lon_east, NA_grid.lat_north, NA_grid.lat_south)
-    print(, , NA_grid.lat_north, NA_grid.lat_south)
 
 
