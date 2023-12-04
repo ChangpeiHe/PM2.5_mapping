@@ -47,6 +47,7 @@ class Grid_define:
             self.row_south = self.lat_to_row(self.lat_south)+1
         self.row_list = list(range(self.row_north, self.row_south+1, 1))
         self.col_list = list(range(self.col_west, self.col_east+1, 1))
+        self.model_grid = self.derive_model_grid()
 
     def lon_to_col(self, lon):
         col = math.ceil((lon+180)/self.res)
@@ -70,8 +71,7 @@ class Grid_define:
         clipped_gdf = gpd.clip(self.map_shapefile, clip_box_gdf)
         return clipped_gdf
     
-    @property
-    def model_grid(self):
+    def derive_model_grid(self):
         if self.shapefile is None:
             self.grid_col, self.grid_row  = np.meshgrid(self.col_list, self.row_list)
             x = [self.col_to_lon(col) for col in self.col_list]
