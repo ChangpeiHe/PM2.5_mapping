@@ -20,6 +20,7 @@ def download_LPDAAC(path, product, download_path, start_day, end_day, user, pass
         tiles: e.g., 'h26v04', 'h27v04'
         download_path
     '''
+    
     download_path = os.path.join(download_path, product)
     if not os.path.exists(download_path):
         os.makedirs(download_path)
@@ -53,6 +54,7 @@ def download_earthdata(product, download_path, start_day, end_day, extent, user,
         download_path
         filetype: e.g., '.tif' '.nc' '.h5'
     '''
+
     download_path = os.path.join(download_path, product)
     if not os.path.exists(download_path):
         os.makedirs(download_path)
@@ -63,7 +65,6 @@ def download_earthdata(product, download_path, start_day, end_day, extent, user,
         end_date=datetime.datetime.strptime(end_day, "%Y-%m-%d"), 
         extent=extent
     )
-    print(f"Totally {len(results)} files")
     url_list = []
     for result in results:
         pattern = rf'http[^\s]*{filetype}'
