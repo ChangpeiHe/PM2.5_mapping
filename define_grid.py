@@ -66,7 +66,7 @@ class Grid_define:
         return lat
     
     def clip_shapefile(self):
-        clip_box = box(-170, 23.5, -50, 83.5)
+        clip_box = box(-145, 10, -67, 70)
         clip_box_gdf = gpd.GeoDataFrame(geometry=[clip_box], crs=self.map_shapefile.crs)
         clipped_gdf = gpd.clip(self.map_shapefile, clip_box_gdf)
         return clipped_gdf

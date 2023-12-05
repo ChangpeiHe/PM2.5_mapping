@@ -172,8 +172,40 @@ class Preprocess_data:
             # df_all.loc[species[i]] = emission
         return(df_all)
 
-
-
+    def process_era5(self, data_dir):
+        df_grid = self.grid_obj.model_grid
+        file_list = os.listdir(data_dir)
+        df_all = []
+        for filename in file_list:
+            df_rxr = xr.open_dataset(os.path.join(data_dir, filename)).sel(latitude=slice(self.grid_obj.lat_north+self.grid_obj.es*5, self.grid_obj.lat_south-self.grid_obj.res*5), 
+                                                                       longitude=slice(self.grid_obj.lon_west-self.grid_obj.res*5, self.grid_obj.lon_east+self.grid_obj.res*5))
+            x = df_rxr['longitude'].values
+            y = df_rxr['latitude'].values
+            grid_x, grid_y = np.meshgrid(x, y)
+            time = df_rxr['time'].values.astype('datetime64[D]')
+            date_list = np.unique(time)
+            mete_variable = ['u10', 'v10', 'd2m', 't2m', 'sp']
+            df_month = []
+            for var in mete_variable:
+                data = df_rxr[var].values
+                df_var = []
+                for date in date_list:
+                    data_day = data[time==date, :, :]
+                    data_day = np.mean(data_day, axis=0)
+                    known_points = np.array([list(grid_x[np.logical_not(np.isnan(data_day))]), 
+                                            list(grid_y[np.logical_not(np.isnan(data_day))]), 
+                                            list(data_day[np.logical_not(np.isnan(data_day))])]).T   
+                    data_in = griddata((known_points[:,0], known_points[:,1]), known_points[:,2], 
+                                                (df_grid['lon'], df_grid['lat']), method='linear')
+                    df_day = pd.DataFrame({'row': df_grid['row'], 'col': df_grid['col'], 'date': date, var: data_in})
+                    df_var.append(df_day) 
+                df_var = pd.concat(df_var, axis=0, ignore_index=True)
+                df_month.append(df_var)
+            df_month = pd.concat(df_month, axis=1)
+            df_month = df_month.loc[:, ~df_month.columns.duplicated()]
+            df_all.append(df_month)
+        df_all = pd.concat(df_all, axis=0, ignore_index=True)
+        return df_all
 
 
         
