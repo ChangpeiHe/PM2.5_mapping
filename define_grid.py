@@ -18,12 +18,13 @@ class Grid_define:
     extent = (-180, -90, 180, 90)
     crs = 'EPSG:4326'
 
-    def __init__(self, res, start_day, end_day, tmp_dir, shapefile=None):
+    def __init__(self, res, start_day, end_day, tmp_dir, shapefile=None, spatial_extent=None):
         self.res = res
         self.start_day = start_day
         self.end_day = end_day
         self.tmp_dir = tmp_dir
         self.shapefile = shapefile
+        self.spatial_extent = spatial_extent
         if self.shapefile is None:
             self.extent = self.extent
             self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.extent
@@ -66,7 +67,7 @@ class Grid_define:
         return lat
     
     def clip_shapefile(self):
-        clip_box = box(-145, 10, -67, 70)
+        clip_box = box(self.spatial_extent[0], self.spatial_extent[1], self.spatial_extent[2], self.spatial_extent[3])
         clip_box_gdf = gpd.GeoDataFrame(geometry=[clip_box], crs=self.map_shapefile.crs)
         clipped_gdf = gpd.clip(self.map_shapefile, clip_box_gdf)
         return clipped_gdf
@@ -99,10 +100,8 @@ class Grid_define:
         
 
 if __name__ == "__main__":	
-    NA_grid = Grid_define(res=0.1, start_day='2023-04-01', end_day='2023-09-30', tmp_dir="C:/Users/hechangpei/Desktop/", shapefile="C:/Users/hechangpei/Desktop/US_CA/USA_CA.shp")
-    df_grid = NA_grid.model_grid
-    print(NA_grid.start_day)
-    print(df_grid)
+    NA_grid = Grid_define(res=0.1, start_day='2023-04-01', end_day='2023-09-30', tmp_dir="/WORK/genggn_work/hechangpei/PM2.5/", shapefile="/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polyline/World_polyline.shp", spatial_extent=[-145, 10, -50, 70])
+    print(NA_grid.model_grid)
     print(NA_grid.lon_west, NA_grid.lon_east, NA_grid.lat_north, NA_grid.lat_south)
 
 

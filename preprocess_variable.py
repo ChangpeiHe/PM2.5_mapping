@@ -41,7 +41,7 @@ class Preprocess_data:
         known_points = np.array([list(grid_x[np.logical_not(np.isnan(df))]), list(grid_y[np.logical_not(np.isnan(df))]), list(df[np.logical_not(np.isnan(df))])]).T
         df = griddata((known_points[:,0], known_points[:,1]), known_points[:,2], (df_grid['lon'], df_grid['lat']), method='linear')
         df[np.isnan(df)] = 0
-        df_all.loc['pop'] = df
+        df_all.loc[:, 'pop'] = df
         return df_all
     
     def process_burn(self, data_dir):
@@ -86,7 +86,7 @@ class Preprocess_data:
                 downscaled_grid_y = downscaled_array.mean(axis=(2, 3))
                 x = downscaled_grid_x.flatten()
                 y = downscaled_grid_y.flatten()
-                transformer = pyproj.Transformer.from_crs(proj, "EPSG:4326", always_xy=True)
+                transformer = pyproj.Transformer.from_crs(proj, self.grid_obj.crs, always_xy=True)
                 x_, y_ = transformer.transform(x, y)
                 burn_area = downscaled_Burn_area.flatten()
                 df_single_file = pd.DataFrame({'lon': x_, 'lat': y_, 'burn_area': burn_area})
@@ -95,8 +95,8 @@ class Preprocess_data:
             known_points = np.array([list(df_burn['lon']), list(df_burn['lat']), list(df_burn['burn_area'])]).T
             df_burn = griddata((known_points[:,0], known_points[:,1]), known_points[:,2], (df_grid['lon'], df_grid['lat']), method='linear')
             df_burn[np.isnan(df_burn)] = 0
-            df_all.loc['burn'] = df_burn
-            df_all.loc['month'] = month
+            df_all.loc[:,'burn'] = df_burn
+            df_all.loc[:,'month'] = month
             df_burn_all.append(df_all)
         df_burn_all = pd.concat(df_burn_all, axis=0, ignore_index=True)
         return df_burn_all
@@ -112,10 +112,10 @@ class Preprocess_data:
         df_all = []
         for i, filename in enumerate(file_list):
             file_dir = os.path.join(data_dir, filename)
-            hdf_ori = rxr.open_rasterio(file_dir).sel(y=slice(self.grid_obj.lat_north+self.grid_obj.res, 
-                                                             self.grid_obj.lat_south-self.grid_obj.res), 
-                                                      x=slice(self.grid_obj.lon_west-self.grid_obj.res, 
-                                                             self.grid_obj.lon_east+self.grid_obj.res))
+            hdf_ori = rxr.open_rasterio(file_dir).sel(y=slice(self.grid_obj.lat_north+self.grid_obj.res*5, 
+                                                         self.grid_obj.lat_south-self.grid_obj.res*5), 
+                                                      x=slice(self.grid_obj.lon_west-self.grid_obj.res*5, 
+                                                         self.grid_obj.lon_east+self.grid_obj.res*5))
             AOD = hdf_ori['AOD_055'].values[0,]*0.001
             AOD[AOD == -28.672] = np.nan
             x = hdf_ori['x'].values
@@ -134,7 +134,9 @@ class Preprocess_data:
                 continue
             else:
                 df = pd.DataFrame({'row':df_grid['row'], 'col':df_grid['col'], 'date': date_list[i], 'aod':aod})
+                df = df.dropna(subset=['aod'])
                 df_all.append(df)
+
         df_all = pd.concat(df_all, axis=0, ignore_index=True)
         return df_all
 
@@ -146,8 +148,10 @@ class Preprocess_data:
             # i=0
             file_dir = os.path.join(data_dir, species[i], 'individual_files')
             filename = np.array(sorted([file for file in os.listdir(file_dir) if 'em-anthro' in file and '200001-201912' in file]))[0]
-            df_rxr = xr.open_dataset(os.path.join(file_dir, filename)).sel(lat=slice(self.grid_obj.lat_south-self.grid_obj.res*5, self.grid_obj.lat_north+self.grid_obj.res*5), 
-                                                                           lon=slice(self.grid_obj.lon_west-self.grid_obj.res*5, self.grid_obj.lon_east+self.grid_obj.res*5))
+            df_rxr = xr.open_dataset(os.path.join(file_dir, filename)).sel(lat=slice(self.grid_obj.lat_south-self.grid_obj.res*5,
+                                                                                     self.grid_obj.lat_north+self.grid_obj.res*5), 
+                                                                           lon=slice(self.grid_obj.lon_west-self.grid_obj.res*5, 
+                                                                                   self.grid_obj.lon_east+self.grid_obj.res*5))
             x = df_rxr['lon'].values
             y = df_rxr['lat'].values
             grid_x, grid_y = np.meshgrid(x, y)
@@ -169,7 +173,6 @@ class Preprocess_data:
             df_all.append(df_species)
         df_all = pd.concat(df_all, axis=1)
         df_all = df_all.loc[:, ~df_all.columns.duplicated()]
-            # df_all.loc[species[i]] = emission
         return(df_all)
 
     def process_era5(self, data_dir):
@@ -177,8 +180,10 @@ class Preprocess_data:
         file_list = os.listdir(data_dir)
         df_all = []
         for filename in file_list:
-            df_rxr = xr.open_dataset(os.path.join(data_dir, filename)).sel(latitude=slice(self.grid_obj.lat_north+self.grid_obj.es*5, self.grid_obj.lat_south-self.grid_obj.res*5), 
-                                                                       longitude=slice(self.grid_obj.lon_west-self.grid_obj.res*5, self.grid_obj.lon_east+self.grid_obj.res*5))
+            df_rxr = xr.open_dataset(os.path.join(data_dir, filename)).sel(latitude=slice(self.grid_obj.lat_north+self.grid_obj.res*5, 
+                                                                                   self.grid_obj.lat_south-self.grid_obj.res*5), 
+                                                                           longitude=slice(self.grid_obj.lon_west-self.grid_obj.res*5, 
+                                                                                   self.grid_obj.lon_east+self.grid_obj.res*5))
             x = df_rxr['longitude'].values
             y = df_rxr['latitude'].values
             grid_x, grid_y = np.meshgrid(x, y)
@@ -197,6 +202,7 @@ class Preprocess_data:
                                             list(data_day[np.logical_not(np.isnan(data_day))])]).T   
                     data_in = griddata((known_points[:,0], known_points[:,1]), known_points[:,2], 
                                                 (df_grid['lon'], df_grid['lat']), method='linear')
+                    data_in[np.isnan(data_in)] = np.nanmean(data_in)
                     df_day = pd.DataFrame({'row': df_grid['row'], 'col': df_grid['col'], 'date': date, var: data_in})
                     df_var.append(df_day) 
                 df_var = pd.concat(df_var, axis=0, ignore_index=True)
