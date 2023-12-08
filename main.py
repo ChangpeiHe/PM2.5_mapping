@@ -12,7 +12,7 @@ from preprocess_variable import Preprocess_data
 grid_obj = Grid_define(res=0.1, start_day='2023-04-01', 
                        end_day='2023-04-03', 
                        tmp_dir="/WORK/genggn_work/hechangpei/PM2.5/", 
-                       shapefile="/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polyline/World_polyline.shp", 
+                       shapefile="/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp", 
                        spatial_extent=[-145, 10, -50, 70])
 process_obj = Preprocess_data(grid_obj)
 # grid_obj.model_grid.describe()
