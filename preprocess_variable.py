@@ -20,10 +20,10 @@ class Preprocess_data:
     
     def process_pm25(self, data_dir):
         df = pd.read_csv(data_dir)
-        df['Date'] = pd.to_datetime(df['Year'].astype(str) + df['DOY'].astype(str), format='%Y%j')
+        df['date'] = pd.to_datetime(df['Year'].astype(str) + df['DOY'].astype(str), format='%Y%j')
         df['row'] = [self.grid_obj.lat_to_row(lat) for lat in df['Lat']]
         df['col'] = [self.grid_obj.lon_to_col(lon) for lon in df['Lon']]
-        df = df.groupby(['row', 'col', 'Date'])[['PM25']].mean().reset_index()
+        df = df.groupby(['row', 'col', 'date'])[['PM25']].mean().reset_index()
         return df
     
     def process_pop(self, data_dir):

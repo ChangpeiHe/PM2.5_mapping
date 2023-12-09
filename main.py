@@ -10,7 +10,7 @@ from define_grid import Grid_define
 from preprocess_variable import Preprocess_data
 
 grid_obj = Grid_define(res=0.1, start_day='2023-04-01', 
-                       end_day='2023-04-03', 
+                       end_day='2023-09-30', 
                        tmp_dir="/WORK/genggn_work/hechangpei/PM2.5/", 
                        shapefile="/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp", 
                        spatial_extent=[-145, 10, -50, 70])
@@ -52,6 +52,41 @@ era5.to_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/era5.csv", index=
 # np.unique(emission)
 # np.unique(era5)
 
+## 3. make training dataset
+pm25 = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pm25.csv") 
+aod = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/aod.csv") 
+burn = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/burn.csv") 
+emission = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/emission.csv") 
+era5 = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/era5.csv") 
+pop = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pop.csv") 
+
+pm25.columns = ['row', 'col', 'date', 'PM25']
+pm25['date'] = pd.to_datetime(pm25['date'])
+aod['date'] = pd.to_datetime(aod['date'])
+era5['date'] = pd.to_datetime(era5['date'])
+pm25.loc[:, 'month'] = pm25.loc[:, 'date'].dt.month
+df = pd.merge(pm25, aod, on=['row', 'col', 'date'])
+df = pd.merge(df, burn, on=['row', 'col', 'month'])
+df = pd.merge(df, emission, on=['row', 'col', 'month'])
+df = pd.merge(df, pop, on=['row', 'col'])
+df = pd.merge(df, era5, on=['row', 'col', 'date'])
+
+df.to_csv('/WORK/genggn_work/hechangpei/PM2.5/training_dataset.csv', index=False)
+
+# 4. make prediction dataset
+prediction_dataset_dir = '/WORK/genggn_work/hechangpei/PM2.5/prediction_dataset/'
+if not os.path.exists(prediction_dataset_dir):
+    os.mkdir(prediction_dataset_dir)
+
+date_list = list(np.unique(aod['date']))
+for date in date_list:
+    df = aod[aod['date']==date]
+    df.loc[:, 'month'] = df['date'].dt.month 
+    df = pd.merge(df, burn, on=['row', 'col', 'month'])
+    df = pd.merge(df, emission, on=['row', 'col', 'month'])
+    df = pd.merge(df, pop, on=['row', 'col'])
+    df = pd.merge(df, era5, on=['row', 'col', 'date'])
+    df.to_csv(os.path.join(prediction_dataset_dir, f"{np.datetime_as_string(date, unit='D')}.csv"), index=False)
 
 
 

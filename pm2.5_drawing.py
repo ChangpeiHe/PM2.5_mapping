@@ -142,7 +142,22 @@ class Draw_variable:
     '''
     
     crs = 'EPSG:4326'
-    color_scheme = [['#1F499F', '#2A50A3', '#325CA8', '#3D72B8', '#4796D2', '#42AADE', '#3FBEEA', '#68C5D5', '#7FCAC2', '#96CFAF', '#ACD697', '#C1DA7E', '#D4DF65', '#E0E54B', '#EEE32E', '#F3C91D', '#F3A81A', '#EF8517', '#E76411', '#E61118', '#E61118'], ]
+    color_scheme = [['#1F499F', '#2A50A3', '#325CA8', '#3D72B8', '#4796D2', '#42AADE', '#3FBEEA', '#68C5D5', '#7FCAC2', '#96CFAF', '#ACD697', '#C1DA7E', '#D4DF65', '#E0E54B', '#EEE32E', '#F3C91D', '#F3A81A', '#EF8517', '#E76411', '#E61118', '#E61118'],
+                    ['#A0251B', '#CB6040', '#E2A979', '#FFFFBE', '#B7D884', '#77AA53', '#478032'],
+                    ['#001BE4', '#4873F4', '#69D7F4', '#A6FAC5', '#E2FC7A', '#F3DE4B', '#E98D35' , '#E73223'],
+                    ['#C1EAED', '#82AFE0', '#4185D8', '#2448AD', '#0B1073'],
+                    ['#CCA569', '#F9F8F4', '#6BA9A1', '#1C362D'],
+                    ['#FFFED8', '#FEFCCC', '#FBE4A5', '#F4C452', '#B58F40', '#8E703B'],
+                    ['#B1E468', '#D5F04F', '#FAE855', '#F9D47C', '#AA7B34', '#E4CEAC', '#FCF7EF'],
+                    ['#B55843', '#E6B442', '#97EB49', '#4FA57F', '#142E77'],
+                    ['#F2A5A1', '#F8D9A1', '#FDF6A4', '#DDFCC3', '#B3FDF7', '#A4C1FA', '#989BF8'],
+                    ['#352D84', '#3445B2', '#3C82CD', '#4BA7BD', '#93BD7C', '#B7BB6F', '#F5C454' , '#F2DC50', '#F8F854' ],
+                    ['#FCF8CD', '#F5EDB9', '#DBC97A', '#B2AE46', '#5B882C', '#457B2F', '#2E6531' , '#275731', '#1B2818', '#161E12'],
+                    ['#001DEF', '#555BF6', '#A9AAF9', '#EDEEFE', '#FADFDE', '#F09997', '#EC6560' , '#EB3324'],
+                    ['#FEFDC8', '#FEFD59', '#F9DF4B', '#F4B13E', '#EC5829', '#E03122', '#6B120B'],
+                    ['#F8F9CD', '#D6EBBA', '#A0D5A6', '#619B9F', '#466490', '#414781', '#616065']
+                    ]
+    
     def __init__(self, res, variables, draw_extent, map_path, data_dir, figure_dir) -> None:
         self.variables = variables
         self.res = res
@@ -156,6 +171,8 @@ class Draw_variable:
         self.cols = int(math.sqrt(len(self.variables)))
         if len(self.variables) % self.rows != 0:
             self.cols += 1
+        if (self.rows*self.cols)<len(self.variables):
+            self.rows += 1
         self.hw_ratio = (self.rows*(self.draw_extent[3]-self.draw_extent[1]))/(self.cols*(self.draw_extent[2]-self.draw_extent[0]))
         if self.shapefile.crs is None:
             self.shapefile = self.shapefile.set_crs('EPSG:4326')
@@ -172,22 +189,21 @@ class Draw_variable:
         return lat
     
     def transfer_draw(self, vmax, vmin, type):
-        if (vmax-vmin) < 1:
-            base = 10 ** math.floor(-math.log10(vmax-vmin))
-        else:
-            base = 10 ** math.floor(math.log10(vmax-vmin))
+        base = 10**math.floor(math.log10(vmax-vmin))
         if type=='vmax':
-            result = base * math.ceil(vmax / base)
+            result = base*math.ceil(vmax/base)
         elif type=='vmin':
-            result = base * math.floor(vmin // base)
+            result = base*math.floor(vmin//base)
         return result
 
     def draw(self):
         fig, axs = plt.subplots(self.rows, self.cols, figsize=(self.cols*2, self.cols*self.hw_ratio*2))
-        print(self.cols*self.hw_ratio, self.cols)
         fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
         gen_axs = (i for i in range(len(self.variables))) 
-        
+        exceed_num = self.rows*self.cols-len(self.variables)
+        if exceed_num>0:
+            for index in range(exceed_num):
+                axs.flat[-index-1].set_visible(False)        
         for filename in self.file_list:
             df = pd.read_csv(os.path.join(self.data_dir, filename))
             variables = list(self.variables.keys())
@@ -212,7 +228,7 @@ class Draw_variable:
                 vmax = self.transfer_draw(vmax, vmin, 'vmax')
                 vmin = self.transfer_draw(vmax, vmin, 'vmin')
                 norm = Normalize(vmin=vmin, vmax=vmax+(vmax-vmin)*0.05, clip=True)
-                cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[0]], N=100)
+                cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[i]], N=100)
                 im = axs.flat[i].matshow(data_array, extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
                                     cmap=cmap, origin='upper', norm=norm)
                 axs.flat[i].set_title(self.variables[variable], fontsize=8, fontweight='bold', pad=3)
@@ -233,17 +249,19 @@ class Draw_variable:
                 offset_text.set_size(7)
                 offset_text.set(va='bottom') 
         # plt.show()
-        plt.savefig(os.path.join(self.figure_dir, 'figure.png'), dpi=1000)
+        plt.savefig(os.path.join(self.figure_dir, 'variable_distribution.png'), dpi=1000)
+
+
 
 if __name__ == "__main__":    
     draw_varaible = Draw_variable(0.1,
-                                {'aod':'Aerosol Optical Depth', 'burn':'Burn Area', 'pop': 'Population', 'SO2': r'SO$_{4}^{2-}$', 
-                                 'NO3': r'NO$_{3}^{-}$', 'NH4': r'NH$_{4}^{+}$', 'OC': 'Organic Carbon', 'BC': 'Black Carbon', 
-                                 'PM25':r'PM$_{2.5}$', 'u10': '10m u-component of wind', 'v10': '10m v-component of wind', 
+                                {'aod':'Aerosol Optical Depth', 'burn':'Burn Area', 'pop': 'Population', 'SO2': r'SO$_{2}$', 
+                                 'NOx': r'NO$_{x}$', 'NH3': r'NH$_{3}$', 'OC': 'Organic Carbon', 'BC': 'Black Carbon', 
+                                 'u10': '10m u-component of wind', 'v10': '10m v-component of wind', 
                                  'd2m': '2m dewpoint temperature', 't2m': '2m temperature', 'sp': 'Surface pressure'},
                                 [-145, 10, -50, 70],
-                                "F:/GIS/China_and_World_Map_shapefiles/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp",
-                                "C:/Users/hechangpei/Desktop/process_result", 
-                                'C:/Users/hechangpei/Desktop/'             
+                                "/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp",
+                                "/WORK/genggn_work/hechangpei/PM2.5/process_result/", 
+                                '/WORK/genggn_work/hechangpei/PM2.5/'             
                                 )  
     draw_varaible.draw()
