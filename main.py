@@ -156,7 +156,7 @@ for filename in os.listdir(output_dir):
     draw_obj.draw_daily_map(file_path=os.path.join(output_dir, filename), 
                             variable='PM25',
                             vmin=0,
-                            vmax=80,
+                            vmax=120,
                             title=filename.replace('.csv', ''),
                             figure_path=os.path.join(figure_dir, filename.replace('.csv', '.png')))
 
