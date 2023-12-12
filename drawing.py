@@ -10,6 +10,10 @@ import pyproj
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, Bbox
 import math
 from matplotlib.ticker import ScalarFormatter
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from scipy.stats import gaussian_kde
+
 
 # class Draw_pm25:
 #     """
@@ -136,7 +140,7 @@ from matplotlib.ticker import ScalarFormatter
 #     draw_full_species.draw()
 
 
-class Draw_variable:
+class Spatial_drawing:
     '''
         draw spatial distributions of predictors 
     '''
@@ -158,22 +162,11 @@ class Draw_variable:
                     ['#F8F9CD', '#D6EBBA', '#A0D5A6', '#619B9F', '#466490', '#414781', '#616065']
                     ]
     
-    def __init__(self, res, variables, draw_extent, map_path, data_dir, figure_dir) -> None:
-        self.variables = variables
+    def __init__(self, res, draw_extent, map_path) -> None:
         self.res = res
-        self.data_dir = data_dir
         self.map_path = map_path
-        self.figure_dir = figure_dir
         self.draw_extent = draw_extent
         self.shapefile = gpd.read_file(self.map_path)
-        self.file_list = os.listdir(data_dir)
-        self.rows = int(math.sqrt(len(self.variables)))
-        self.cols = int(math.sqrt(len(self.variables)))
-        if len(self.variables) % self.rows != 0:
-            self.cols += 1
-        if (self.rows*self.cols)<len(self.variables):
-            self.rows += 1
-        self.hw_ratio = (self.rows*(self.draw_extent[3]-self.draw_extent[1]))/(self.cols*(self.draw_extent[2]-self.draw_extent[0]))
         if self.shapefile.crs is None:
             self.shapefile = self.shapefile.set_crs('EPSG:4326')
             self.shapefile = self.shapefile.to_crs(self.crs)
@@ -196,19 +189,27 @@ class Draw_variable:
             result = base*math.floor(vmin//base)
         return result
 
-    def draw(self):
-        fig, axs = plt.subplots(self.rows, self.cols, figsize=(self.cols*2, self.cols*self.hw_ratio*2))
+    def draw_multiple_variable(self, variables, data_dir, figure_path):
+        file_list = os.listdir(data_dir)
+        rows = int(math.sqrt(len(variables)))
+        cols = int(math.sqrt(len(variables)))
+        if len(variables) % rows != 0:
+            cols += 1
+        if (rows*cols)<len(variables):
+            rows += 1
+        hw_ratio = (rows*(self.draw_extent[3]-self.draw_extent[1]))/(cols*(self.draw_extent[2]-self.draw_extent[0]))
+        fig, axs = plt.subplots(rows, cols, figsize=(cols*2, cols*hw_ratio*2))
         fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
-        gen_axs = (i for i in range(len(self.variables))) 
-        exceed_num = self.rows*self.cols-len(self.variables)
+        gen_axs = (i for i in range(len(variables))) 
+        exceed_num = rows*cols-len(variables)
         if exceed_num>0:
             for index in range(exceed_num):
                 axs.flat[-index-1].set_visible(False)        
-        for filename in self.file_list:
-            df = pd.read_csv(os.path.join(self.data_dir, filename))
-            variables = list(self.variables.keys())
-            variables = list(set(df.columns) & set(variables))
-            if len(variables)==0:
+        for filename in file_list:
+            df = pd.read_csv(os.path.join(data_dir, filename))
+            all_variables = list(variables.keys())
+            all_variables = list(set(df.columns) & set(all_variables))
+            if len(all_variables)==0:
                 continue
             lon_west = self.col_to_lon(np.min(df['col']))
             lon_east = self.col_to_lon(np.max(df['col']))
@@ -216,7 +217,7 @@ class Draw_variable:
             lat_south = self.row_to_lat(np.max(df['row']))
             height = round((lat_north-lat_south)/self.res)+1
             width = round((lon_east-lon_west)/self.res)+1
-            for variable in variables:
+            for variable in all_variables:
                 i = next(gen_axs)
                 data = df.groupby(['row', 'col'])[variable].mean().reset_index()
                 data_array = np.full((height, width), fill_value=np.nan)
@@ -231,7 +232,7 @@ class Draw_variable:
                 cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[i]], N=100)
                 im = axs.flat[i].matshow(data_array, extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
                                     cmap=cmap, origin='upper', norm=norm)
-                axs.flat[i].set_title(self.variables[variable], fontsize=8, fontweight='bold', pad=3)
+                axs.flat[i].set_title(variables[variable], fontsize=8, fontweight='bold', pad=3)
                 self.shapefile.plot(ax=axs.flat[i], facecolor='none', edgecolor='black', linewidth=0.5)
                 axs.flat[i].set_xticks([])
                 axs.flat[i].set_yticks([])
@@ -249,19 +250,138 @@ class Draw_variable:
                 offset_text.set_size(7)
                 offset_text.set(va='bottom') 
         # plt.show()
-        plt.savefig(os.path.join(self.figure_dir, 'variable_distribution.png'), dpi=1000)
+        plt.savefig(os.path.join(figure_path), dpi=1000)
+        plt.close()
+    
+    def draw_single_map(self, file_path, variable, title, figure_path):
+        fig, axs = plt.subplots(figsize=(6, 4))
+        fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
+        df = pd.read_csv(file_path)
+        lon_west = self.col_to_lon(np.min(df['col']))
+        lon_east = self.col_to_lon(np.max(df['col']))
+        lat_north = self.row_to_lat(np.min(df['row']))
+        lat_south = self.row_to_lat(np.max(df['row']))
+        height = round((lat_north-lat_south)/self.res)+1
+        width = round((lon_east-lon_west)/self.res)+1
+        data = df.groupby(['row', 'col'])[variable].mean().reset_index()
+        data_array = np.full((height, width), fill_value=np.nan)
+        row_index = data['row']-np.min(data['row'])
+        col_index = data['col']-np.min(data['col'])
+        data_array[row_index, col_index] = data[variable]
+        vmax = data[variable].quantile(0.99)
+        vmin = data[variable].quantile(0.01)
+        vmax = self.transfer_draw(vmax, vmin, 'vmax')
+        vmin = self.transfer_draw(vmax, vmin, 'vmin')
+        norm = Normalize(vmin=vmin, vmax=vmax+(vmax-vmin)*0.05, clip=True)
+        cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[0]], N=100)
+        im = axs.matshow(data_array, extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
+                            cmap=cmap, origin='upper', norm=norm)
+        axs.set_title(title, fontsize=10, fontweight='bold', pad=3)
+        self.shapefile.plot(ax=axs, facecolor='none', edgecolor='black', linewidth=0.5)
+        axs.set_xticks([])
+        axs.set_yticks([])
+        axs.set_xlim(self.draw_extent[0], self.draw_extent[2])
+        axs.set_ylim(self.draw_extent[1], self.draw_extent[3])
+        cb = plt.colorbar(im, ax=axs, shrink=0.7, pad=0.04)
+        cb.ax.tick_params(labelsize=10, pad=0.5)
+        cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
+        cb.ax.set_title(r'$\mu$g/m$^{3}$', fontdict={"size":10, "color":"k"}, pad=10)
+        formatter = ScalarFormatter()
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-2, 3))
+        cb.formatter = formatter
+        cb.update_ticks()
+        offset_text = cb.ax.yaxis.get_offset_text()
+        offset_text.set_size(10)
+        offset_text.set(va='bottom') 
+        plt.savefig(figure_path, dpi=1000)        
+        plt.close()
+        
+    def draw_daily_map(self, file_path, variable, title, vmin, vmax, figure_path):
+        fig, axs = plt.subplots(figsize=(6, 4))
+        fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
+        df = pd.read_csv(file_path)
+        lon_west = self.col_to_lon(np.min(df['col']))
+        lon_east = self.col_to_lon(np.max(df['col']))
+        lat_north = self.row_to_lat(np.min(df['row']))
+        lat_south = self.row_to_lat(np.max(df['row']))
+        height = round((lat_north-lat_south)/self.res)+1
+        width = round((lon_east-lon_west)/self.res)+1
+        data = df.groupby(['row', 'col'])[variable].mean().reset_index()
+        data_array = np.full((height, width), fill_value=np.nan)
+        row_index = data['row']-np.min(data['row'])
+        col_index = data['col']-np.min(data['col'])
+        data_array[row_index, col_index] = data[variable]
+        norm = Normalize(vmin=vmin, vmax=vmax+(vmax-vmin)*0.05, clip=True)
+        cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[0]], N=100)
+        im = axs.matshow(data_array, extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
+                            cmap=cmap, origin='upper', norm=norm)
+        axs.set_title(title, fontsize=10, fontweight='bold', pad=3)
+        self.shapefile.plot(ax=axs, facecolor='none', edgecolor='black', linewidth=0.5)
+        axs.set_xticks([])
+        axs.set_yticks([])
+        axs.set_xlim(self.draw_extent[0], self.draw_extent[2])
+        axs.set_ylim(self.draw_extent[1], self.draw_extent[3])
+        cb = plt.colorbar(im, ax=axs, shrink=0.7, pad=0.04)
+        cb.ax.tick_params(labelsize=10, pad=0.5)
+        cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
+        cb.ax.set_title(r'$\mu$g/m$^{3}$', fontdict={"size":10, "color":"k"}, pad=10)
+        formatter = ScalarFormatter()
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-2, 3))
+        cb.formatter = formatter
+        cb.update_ticks()
+        offset_text = cb.ax.yaxis.get_offset_text()
+        offset_text.set_size(10)
+        offset_text.set(va='bottom') 
+        plt.savefig(figure_path, dpi=1000) 
+        plt.close()
 
+def model_performance(x, y, figure_path):
+    vmax = math.ceil(np.percentile(x, 99))
+    num_points = len(x)
+    R2 = (np.corrcoef(x, y)[0, 1])**2
+    MAE = mean_absolute_error(x, y)
+    RMSE = np.sqrt(mean_squared_error(x, y))
+    MB = np.mean(y)-np.mean(x)
+    print("R2 = ", R2)
+    print("MAE = ", MAE)
+    print("RMSE = ", RMSE)
+    xy = np.vstack([x, y])
+    density = gaussian_kde(xy)(xy)
+    cmax = np.percentile(density, 95)
+    cmin = np.percentile(density, 5)
+    plt.scatter(x, y, c=density, cmap='Spectral_r')
+    plt.colorbar(label='Density')
+    plt.clim(cmin, cmax) 
+    plt.plot([0, vmax], [0, vmax], '--', color='gray')
+    fit = np.polyfit(x, y, 1)
+    fit_fn = np.poly1d(fit)
+    plt.plot(x, fit_fn(x), '-', color='black')
+    plt.text(0.05, 0.95, r'R$^{2}$' + ' = {:.2f}'.format(R2), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+    plt.text(0.05, 0.90, 'MB = {:.2f}'.format(MB)+ r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+    plt.text(0.05, 0.85, 'MAE = {:.2f}'.format(MAE) + r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+    plt.text(0.05, 0.80, 'RMSE = {:.2f}'.format(RMSE) + r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+    plt.text(0.05, 0.75, 'Y = {:.2f} X + {:.2f}'.format(fit[0], fit[1]), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+    plt.text(0.05, 0.70, 'N = {}'.format(num_points), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+    plt.xlim(0, vmax)
+    plt.ylim(0, vmax)
+    plt.xlabel(r'Observed PM$_{2.5}$')
+    plt.ylabel(r'Predicted PM$_{2.5}$')
+    plt.savefig(figure_path, dpi=1000)
+    plt.close()
 
 
 if __name__ == "__main__":    
-    draw_varaible = Draw_variable(0.1,
-                                {'aod':'Aerosol Optical Depth', 'burn':'Burn Area', 'pop': 'Population', 'SO2': r'SO$_{2}$', 
-                                 'NOx': r'NO$_{x}$', 'NH3': r'NH$_{3}$', 'OC': 'Organic Carbon', 'BC': 'Black Carbon', 
-                                 'u10': '10m u-component of wind', 'v10': '10m v-component of wind', 
-                                 'd2m': '2m dewpoint temperature', 't2m': '2m temperature', 'sp': 'Surface pressure'},
+    
+    draw_obj = Spatial_drawing(0.1,
                                 [-145, 10, -50, 70],
-                                "/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp",
-                                "/WORK/genggn_work/hechangpei/PM2.5/process_result/", 
-                                '/WORK/genggn_work/hechangpei/PM2.5/'             
-                                )  
-    draw_varaible.draw()
+                                "/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp")      
+                                  
+    
+    draw_obj.draw_multiple_variable({'aod':'Aerosol Optical Depth', 'burn':'Burn Area', 'pop': 'Population', 'SO2': r'SO$_{2}$', 
+                                    'NOx': r'NO$_{x}$', 'NH3': r'NH$_{3}$', 'OC': 'Organic Carbon', 'BC': 'Black Carbon', 
+                                    'u10': '10m u-component of wind', 'v10': '10m v-component of wind', 
+                                    'd2m': '2m dewpoint temperature', 't2m': '2m temperature', 'sp': 'Surface pressure'},
+                                    "/WORK/genggn_work/hechangpei/PM2.5/process_result/", 
+                                    '/WORK/genggn_work/hechangpei/PM2.5/variable_distribution.png')
