@@ -1,5 +1,0 @@
-nohup: ignoring input
-/home/genggn/.conda/envs/myenv/lib/python3.11/site-packages/geopandas/_compat.py:152: UserWarning: The Shapely GEOS version (3.10.3-CAPI-1.16.1) is incompatible with the GEOS version PyGEOS was compiled with (3.10.4-CAPI-1.16.2). Conversions between both will be slow.
-  set_use_pygeos()
-/WORK/genggn_work/hechangpei/PM2.5/PM2.5_mapping/pm2.5_drawing.py:4: DeprecationWarning: GeoPandas is set to use PyGEOS over Shapely. PyGEOS support is deprecatedand will be removed in GeoPandas 1.0, released in the Q1 of 2024. Please migrate to Shapely 2.0 (https://geopandas.org/en/stable/docs/user_guide/pygeos_to_shapely.html).
-  import geopandas as gpd
