@@ -11,7 +11,7 @@ from define_grid import Grid_define
 from preprocess_variable import Preprocess_data
 from build_model import XGBoost_model
 from drawing import Spatial_drawing
-import imageio
+import copy
 
 grid_obj = Grid_define(res=0.1, start_day='2023-04-01', 
                        end_day='2023-09-30', 
@@ -105,7 +105,7 @@ draw_obj = Spatial_drawing(0.1,
 # #     df = pd.merge(df, era5, on=['row', 'col', 'date'])
 # #     df.to_csv(os.path.join(prediction_dataset_dir, f"{np.datetime_as_string(date, unit='D')}.csv"), index=False)
     
-# # 6. build model and validation
+# 6. build model and validation
 # params = {'colsample_bytree': 2/3,
 #             'eta': 0.01,
 #             'eval_metric': "rmse",
@@ -118,29 +118,42 @@ draw_obj = Spatial_drawing(0.1,
 #             # 'tree_method': "gpu_hist",
 #             }
 
-# ## build model and validation
+## build model and validation
 # pm25_model = XGBoost_model(params=params, 
-#                             independent_v=['doy', 'month', 'burn', 'aod','pop', 
+#                             independent_v=['doy', 'month', 'burn', 'aod', 'pop', 
 #                                             'BC', 'NOx', 'OC', 'NH3', 'SO2', 
 #                                             'u10', 'v10', 'd2m', 't2m', 'sp'], 
+#                             independent_v_name=['Day of year', 'Month', 'Burn Area', 'Aerosol Optical Depth', 'Population', 
+#                                                 'Black Carbon', r'NO$_{x}$', 'Organic Carbon',r'NH$_{3}$',  r'SO$_{2}$', 
+#                                                 '10m u-component of wind', '10m v-component of wind', 
+#                                                 '2m dewpoint temperature', '2m temperature', 'Surface pressure'],
 #                             dependent_v='PM25',
 #                             training_data_path="/WORK/genggn_work/hechangpei/PM2.5/training_dataset.csv")
 # bst = pm25_model.train()
 # ypred = bst.predict(pm25_model.dvalid)
 # yobs = pm25_model.dvalid.get_label()
-# model_performance(yobs, ypred, '/WORK/genggn_work/hechangpei/PM2.5/validation_result.png')
+# draw_obj.model_performance(yobs, ypred, '/WORK/genggn_work/hechangpei/PM2.5/validation_result.png')
 
-# ## ultimate model
+## ultimate model
 # bst_ultimate = pm25_model.ultimate_train()
 # bst_ultimate.save_model(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/pm25.model'))
 
-# ## variable importance
-# # xgb.plot_importance(bst_ultimate)
-# # plt.show()
-    
 # ## import trained model
 # bst = xgb.Booster({'nthread': 12})  # init model
 # bst.load_model(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/pm25.model'))  # load data
+
+# ## variable importance
+# importance = list(bst.get_score(importance_type='weight').values())
+# feature_names = copy.copy(pm25_model.independent_v_name)
+# feature_names = [feature_names[i] for i in np.argsort(importance)]
+# fig, ax = plt.figure(figsize=(10, 6))
+# plt.subplots_adjust(left=0.2)
+# xgb.plot_importance(bst, ax=plt.gca())
+# plt.gca().set_yticklabels(feature_names)
+# # plt.show()
+# plt.savefig(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/varaible_importance.png'), dpi=1000)
+# plt.close()
+
 
 # ## 7. predict
 # input_dir = '/WORK/genggn_work/hechangpei/PM2.5/prediction_dataset'
@@ -161,16 +174,9 @@ draw_obj = Spatial_drawing(0.1,
 #                             figure_path=os.path.join(figure_dir, filename.replace('.csv', '.png')))
 
 # ## make daily video
-# image_folder = '/WORK/genggn_work/hechangpei/PM2.5/daily_map'
-# video_name = '/WORK/genggn_work/hechangpei/PM2.5/daily_map_video.mp4'
-# images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
-# images.sort()
-# image_paths = [os.path.join(image_folder, img) for img in images]
-# video_writer = imageio.get_writer(video_name, fps=1/0.3)
-# for image_path in image_paths:
-#     img = imageio.imread(image_path)
-#     video_writer.append_data(img)
-# video_writer.close()
+# input_dir = '/WORK/genggn_work/hechangpei/PM2.5/daily_map'
+# output_path = '/WORK/genggn_work/hechangpei/PM2.5/daily_map_video.mp4'
+# draw_obj.figure_to_video(input_dir=input_dir, output_path=output_path)
 
 # ## 9. monthly map
 # draw_obj.draw_monthly_map(variable='PM25', vmin=0, vmax=100, 

@@ -13,6 +13,7 @@ from matplotlib.ticker import ScalarFormatter
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from scipy.stats import gaussian_kde
+import imageio
 
 
 # class Draw_pm25:
@@ -422,7 +423,7 @@ class Spatial_drawing:
 
         for i, data_pair in enumerate(data_pairs):
             x, y = data_pair
-            line_params = line_settings.get(f"line{i+1}", {'label': f"Line {i+1}", 'color': None})
+            line_params = line_settings.get(f"line{i+1}")
             plt.plot(x, y, label=line_params['label'], color=line_params['color'])
 
         plt.legend()
@@ -463,6 +464,17 @@ class Spatial_drawing:
         plt.ylabel(r'Predicted PM$_{2.5}$')
         plt.savefig(figure_path, dpi=1000)
         plt.close()
+
+    @staticmethod
+    def figure_to_video(input_dir, output_path):
+        images = [img for img in os.listdir(input_dir) if img.endswith(".png")]
+        images.sort()
+        image_paths = [os.path.join(input_dir, img) for img in images]
+        video_writer = imageio.get_writer(output_path, fps=1/0.3)
+        for image_path in image_paths:
+            img = imageio.imread(image_path)
+            video_writer.append_data(img)
+        video_writer.close()
 
 
 if __name__ == "__main__":    

@@ -13,10 +13,11 @@ class XGBoost_model:
     
     num_round = 2000
     
-    def __init__(self, params, independent_v, dependent_v, training_data_path) -> None:
+    def __init__(self, params, independent_v, independent_v_name, dependent_v, training_data_path) -> None:
         self.params = params
         self.independent_v = independent_v
         self.dependent_v = dependent_v
+        self.independent_v_name = independent_v_name
         self.origin_dataset = pd.read_csv(training_data_path)    
         self.origin_dataset['doy'] = pd.to_datetime(self.origin_dataset['date']).dt.day_of_year
         self.nsamples = self.origin_dataset.shape[0]    
