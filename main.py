@@ -10,7 +10,7 @@ from download_variable import download_LPDAAC
 from define_grid import Grid_define
 from preprocess_variable import Preprocess_data
 from build_model import XGBoost_model
-from drawing import Spatial_drawing, model_performance
+from drawing import Spatial_drawing
 import imageio
 
 grid_obj = Grid_define(res=0.1, start_day='2023-04-01', 
@@ -60,118 +60,144 @@ draw_obj = Spatial_drawing(0.1,
 # np.unique(emission)
 # np.unique(era5)
 
-## 3. draw spatial distribution of variables
-draw_obj.draw_multiple_variable({'aod':'Aerosol Optical Depth', 'burn':'Burn Area', 'pop': 'Population', 'SO2': r'SO$_{2}$', 
-                                'NOx': r'NO$_{x}$', 'NH3': r'NH$_{3}$', 'OC': 'Organic Carbon', 'BC': 'Black Carbon', 
-                                'u10': '10m u-component of wind', 'v10': '10m v-component of wind', 
-                                'd2m': '2m dewpoint temperature', 't2m': '2m temperature', 'sp': 'Surface pressure'},
-                                "/WORK/genggn_work/hechangpei/PM2.5/process_result", 
-                                "/WORK/genggn_work/hechangpei/PM2.5/variable_distribution.png")
+# ## 3. draw spatial distribution of variables
+# draw_obj.draw_multiple_variable({'aod':'Aerosol Optical Depth', 'burn':'Burn Area', 'pop': 'Population', 'SO2': r'SO$_{2}$', 
+#                                 'NOx': r'NO$_{x}$', 'NH3': r'NH$_{3}$', 'OC': 'Organic Carbon', 'BC': 'Black Carbon', 
+#                                 'u10': '10m u-component of wind', 'v10': '10m v-component of wind', 
+#                                 'd2m': '2m dewpoint temperature', 't2m': '2m temperature', 'sp': 'Surface pressure'},
+#                                 "/WORK/genggn_work/hechangpei/PM2.5/process_result", 
+#                                 "/WORK/genggn_work/hechangpei/PM2.5/variable_distribution.png")
 
-## 4. make training dataset
-# pm25 = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pm25.csv") 
-# aod = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/aod.csv") 
-# burn = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/burn.csv") 
-# emission = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/emission.csv") 
-# era5 = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/era5.csv") 
-# pop = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pop.csv") 
+# ## 4. make training dataset
+# # pm25 = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pm25.csv") 
+# # aod = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/aod.csv") 
+# # burn = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/burn.csv") 
+# # emission = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/emission.csv") 
+# # era5 = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/era5.csv") 
+# # pop = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pop.csv") 
 
-# pm25.columns = ['row', 'col', 'date', 'PM25']
-# pm25['date'] = pd.to_datetime(pm25['date'])
-# pm25.loc[:, 'month'] = pm25.loc[:, 'date'].dt.month
-# aod['date'] = pd.to_datetime(aod['date'])
-# era5['date'] = pd.to_datetime(era5['date'])
+# # pm25.columns = ['row', 'col', 'date', 'PM25']
+# # pm25['date'] = pd.to_datetime(pm25['date'])
+# # pm25.loc[:, 'month'] = pm25.loc[:, 'date'].dt.month
+# # aod['date'] = pd.to_datetime(aod['date'])
+# # era5['date'] = pd.to_datetime(era5['date'])
 
-# df = pd.merge(pm25, aod, on=['row', 'col', 'date'])
-# df = pd.merge(df, burn, on=['row', 'col', 'month'])
-# df = pd.merge(df, emission, on=['row', 'col', 'month'])
-# df = pd.merge(df, pop, on=['row', 'col'])
-# df = pd.merge(df, era5, on=['row', 'col', 'date'])
+# # df = pd.merge(pm25, aod, on=['row', 'col', 'date'])
+# # df = pd.merge(df, burn, on=['row', 'col', 'month'])
+# # df = pd.merge(df, emission, on=['row', 'col', 'month'])
+# # df = pd.merge(df, pop, on=['row', 'col'])
+# # df = pd.merge(df, era5, on=['row', 'col', 'date'])
 
-# df.to_csv('/WORK/genggn_work/hechangpei/PM2.5/training_dataset.csv', index=False)
+# # df.to_csv('/WORK/genggn_work/hechangpei/PM2.5/training_dataset.csv', index=False)
 
-# 5. make prediction dataset
-# prediction_dataset_dir = '/WORK/genggn_work/hechangpei/PM2.5/prediction_dataset/'
-# if not os.path.exists(prediction_dataset_dir):
-#     os.mkdir(prediction_dataset_dir)
+# # 5. make prediction dataset
+# # prediction_dataset_dir = '/WORK/genggn_work/hechangpei/PM2.5/prediction_dataset/'
+# # if not os.path.exists(prediction_dataset_dir):
+# #     os.mkdir(prediction_dataset_dir)
 
-# date_list = list(np.unique(aod['date']))
-# for date in date_list:
-#     df = aod[aod['date']==date]
-#     df.loc[:, 'month'] = df['date'].dt.month 
-#     df = pd.merge(df, burn, on=['row', 'col', 'month'])
-#     df = pd.merge(df, emission, on=['row', 'col', 'month'])
-#     df = pd.merge(df, pop, on=['row', 'col'])
-#     df = pd.merge(df, era5, on=['row', 'col', 'date'])
-#     df.to_csv(os.path.join(prediction_dataset_dir, f"{np.datetime_as_string(date, unit='D')}.csv"), index=False)
+# # date_list = list(np.unique(aod['date']))
+# # for date in date_list:
+# #     df = aod[aod['date']==date]
+# #     df.loc[:, 'month'] = df['date'].dt.month 
+# #     df = pd.merge(df, burn, on=['row', 'col', 'month'])
+# #     df = pd.merge(df, emission, on=['row', 'col', 'month'])
+# #     df = pd.merge(df, pop, on=['row', 'col'])
+# #     df = pd.merge(df, era5, on=['row', 'col', 'date'])
+# #     df.to_csv(os.path.join(prediction_dataset_dir, f"{np.datetime_as_string(date, unit='D')}.csv"), index=False)
     
-# 6. build model and validation
-params = {'colsample_bytree': 2/3,
-            'eta': 0.01,
-            'eval_metric': "rmse",
-            # gpu_id = 1,
-            'max_depth': 8,
-            # n_gpus = 1,
-            'nthread': 12,
-            'objective': "reg:linear",
-            'subsample': 0.7,
-            # 'tree_method': "gpu_hist",
-            }
+# # 6. build model and validation
+# params = {'colsample_bytree': 2/3,
+#             'eta': 0.01,
+#             'eval_metric': "rmse",
+#             # gpu_id = 1,
+#             'max_depth': 8,
+#             # n_gpus = 1,
+#             'nthread': 12,
+#             'objective': "reg:linear",
+#             'subsample': 0.7,
+#             # 'tree_method': "gpu_hist",
+#             }
 
-## build model and validation
-pm25_model = XGBoost_model(params=params, 
-                            independent_v=['doy', 'month', 'burn', 'aod','pop', 
-                                            'BC', 'NOx', 'OC', 'NH3', 'SO2', 
-                                            'u10', 'v10', 'd2m', 't2m', 'sp'], 
-                            dependent_v='PM25',
-                            training_data_path="/WORK/genggn_work/hechangpei/PM2.5/training_dataset.csv")
-bst = pm25_model.train()
-ypred = bst.predict(pm25_model.dvalid)
-yobs = pm25_model.dvalid.get_label()
-model_performance(yobs, ypred, '/WORK/genggn_work/hechangpei/PM2.5/validation_result.png')
+# ## build model and validation
+# pm25_model = XGBoost_model(params=params, 
+#                             independent_v=['doy', 'month', 'burn', 'aod','pop', 
+#                                             'BC', 'NOx', 'OC', 'NH3', 'SO2', 
+#                                             'u10', 'v10', 'd2m', 't2m', 'sp'], 
+#                             dependent_v='PM25',
+#                             training_data_path="/WORK/genggn_work/hechangpei/PM2.5/training_dataset.csv")
+# bst = pm25_model.train()
+# ypred = bst.predict(pm25_model.dvalid)
+# yobs = pm25_model.dvalid.get_label()
+# model_performance(yobs, ypred, '/WORK/genggn_work/hechangpei/PM2.5/validation_result.png')
 
-## ultimate model
-bst_ultimate = pm25_model.ultimate_train()
-bst_ultimate.save_model(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/pm25.model'))
+# ## ultimate model
+# bst_ultimate = pm25_model.ultimate_train()
+# bst_ultimate.save_model(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/pm25.model'))
 
-## variable importance
-# xgb.plot_importance(bst_ultimate)
-# plt.show()
+# ## variable importance
+# # xgb.plot_importance(bst_ultimate)
+# # plt.show()
     
-## import trained model
-bst = xgb.Booster({'nthread': 12})  # init model
-bst.load_model(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/pm25.model'))  # load data
+# ## import trained model
+# bst = xgb.Booster({'nthread': 12})  # init model
+# bst.load_model(os.path.join('/WORK/genggn_work/hechangpei/PM2.5/pm25.model'))  # load data
 
-## 7. predict
-input_dir = '/WORK/genggn_work/hechangpei/PM2.5/prediction_dataset'
-output_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
-figure_dir = '/WORK/genggn_work/hechangpei/PM2.5/daily_map'
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-if not os.path.exists(figure_dir):
-    os.makedirs(figure_dir)
+# ## 7. predict
+# input_dir = '/WORK/genggn_work/hechangpei/PM2.5/prediction_dataset'
+# output_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
+# figure_dir = '/WORK/genggn_work/hechangpei/PM2.5/daily_map'
+# if not os.path.exists(output_dir):
+#     os.makedirs(output_dir)
+# if not os.path.exists(figure_dir):
+#     os.makedirs(figure_dir)
     
-pm25_model.predict(input_dir=input_dir, output_dir=output_dir)
-for filename in os.listdir(output_dir):
-    draw_obj.draw_daily_map(file_path=os.path.join(output_dir, filename), 
-                            variable='PM25',
-                            vmin=0,
-                            vmax=120,
-                            title=filename.replace('.csv', ''),
-                            figure_path=os.path.join(figure_dir, filename.replace('.csv', '.png')))
+# pm25_model.predict(input_dir=input_dir, output_dir=output_dir)
+# for filename in os.listdir(output_dir):
+#     draw_obj.draw_daily_map(file_path=os.path.join(output_dir, filename), 
+#                             variable='PM25',
+#                             vmin=0,
+#                             vmax=150,
+#                             title=filename.replace('.csv', ''),
+#                             figure_path=os.path.join(figure_dir, filename.replace('.csv', '.png')))
 
-## make daily video
-image_folder = '/WORK/genggn_work/hechangpei/PM2.5/daily_map'
-video_name = '/WORK/genggn_work/hechangpei/PM2.5/daily_map_video.mp4'
-images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
-images.sort()
-image_paths = [os.path.join(image_folder, img) for img in images]
-video_writer = imageio.get_writer(video_name, fps=1/0.3)
-for image_path in image_paths:
-    img = imageio.imread(image_path)
-    video_writer.append_data(img)
-video_writer.close()
+# ## make daily video
+# image_folder = '/WORK/genggn_work/hechangpei/PM2.5/daily_map'
+# video_name = '/WORK/genggn_work/hechangpei/PM2.5/daily_map_video.mp4'
+# images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
+# images.sort()
+# image_paths = [os.path.join(image_folder, img) for img in images]
+# video_writer = imageio.get_writer(video_name, fps=1/0.3)
+# for image_path in image_paths:
+#     img = imageio.imread(image_path)
+#     video_writer.append_data(img)
+# video_writer.close()
+
+# ## 9. monthly map
+# draw_obj.draw_monthly_map(variable='PM25', vmin=0, vmax=100, 
+#                           month_dict={'4': 'Apr', '5': 'May', '6': 'Jun', '7': 'Jul', '8': 'Aug', '9': 'Sep'},
+#                           data_dir='/WORK/genggn_work/hechangpei/PM2.5/predict_result',
+#                           figure_path="/WORK/genggn_work/hechangpei/PM2.5/month_distribution.png")
 
 
+## 10. observed and predicted pm2.5 line
+file_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
+file_list = os.listdir(file_dir)
+date_list = []
+pm25_mean = []
+for filename in file_list:
+    df = pd.read_csv(os.path.join(file_dir, filename))
+    date = pd.to_datetime(np.unique(df['date'])[0]).date()
+    pm25 = np.mean(df['PM25'])
+    pm25_mean.append(pm25)
+    date_list.append(date)
+df_pre = pd.DataFrame({'date': date_list, 'PM25':pm25_mean})
+df_pre = df_pre.sort_values(by='date').reset_index(drop=True)
+df_obs = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pm25.csv") 
+df_obs['date'] = pd.to_datetime(df_obs['date'])
+df_obs = df_obs[(df_obs['date']<=pd.to_datetime(grid_obj.end_day, format='%Y-%m-%d')) & (df_obs['date']>=pd.to_datetime(grid_obj.start_day, format='%Y-%m-%d'))]
+df_obs = df_obs.groupby(['date'])['PM25'].mean().reset_index()
 
-
+draw_obj.single_axis_plot("Date", r'Daily average PM$_{2.5}$' + r' ($\mu$g/m$^{3}$)',
+                          "/WORK/genggn_work/hechangpei/PM2.5/pm25_line.png",
+                        (df_obs['date'], df_obs['PM25']), (df_pre['date'], df_pre['PM25']), 
+                        line1={'label': r'Observed PM$_{2.5}$', 'color': '#D64531'}, line2={'label': r'Predicted PM$_{2.5}$', 'color': '#25599A'})

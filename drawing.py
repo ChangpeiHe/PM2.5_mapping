@@ -336,40 +336,133 @@ class Spatial_drawing:
         offset_text.set(va='bottom') 
         plt.savefig(figure_path, dpi=1000) 
         plt.close()
+        
+    def draw_monthly_map(self, variable, vmin, vmax, month_dict, data_dir, figure_path):
+        file_list = os.listdir(data_dir)
+        month_list = month_dict.keys()
+        rows = int(math.sqrt(len(month_list)))
+        cols = int(math.sqrt(len(month_list)))
+        if len(month_list) % rows != 0:
+            cols += 1
+        if (rows*cols)<len(month_list):
+            rows += 1
+        hw_ratio = (rows*(self.draw_extent[3]-self.draw_extent[1]))/(cols*(self.draw_extent[2]-self.draw_extent[0]))
+        fig, axs = plt.subplots(rows, cols, figsize=(cols*2, cols*hw_ratio*2))
+        fig.subplots_adjust(left=0.15, right=0.85, top=0.85, bottom=0.15, wspace=0.05, hspace=0.1)
+        exceed_num = rows*cols-len(month_list)
+        if exceed_num>0:
+            for index in range(exceed_num):
+                axs.flat[-index-1].set_visible(False)  
+        norm = Normalize(vmin=vmin, vmax=vmax+(vmax-vmin)*0.05, clip=True)
+        cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[0]], N=100)
+        for i, month in enumerate(month_list):
+            # date_range = list(pd.date_range(start=f'{year}-{month}-01', end=f'{year}-{month + 1}-01') - pd.Timedelta(days=1))
+            # file_month_list = [f"{date.date()}.csv" for date in date_range]
+            file_month_list = [file for file in file_list if f'2023-{str(month).zfill(2)}' in file]
+            df_month = []
+            for filename in file_month_list:
+                df = pd.read_csv(os.path.join(data_dir, filename))
+                df_month.append(df)
+            df_month = pd.concat(df_month, axis=0, ignore_index=True)
+            df = df_month.groupby(['row', 'col'])[variable].mean().reset_index()
+            lon_west = self.col_to_lon(np.min(df['col']))
+            lon_east = self.col_to_lon(np.max(df['col']))
+            lat_north = self.row_to_lat(np.min(df['row']))
+            lat_south = self.row_to_lat(np.max(df['row']))
+            height = round((lat_north-lat_south)/self.res)+1
+            width = round((lon_east-lon_west)/self.res)+1
+            data_array = np.full((height, width), fill_value=np.nan)
+            row_index = df['row']-np.min(df['row'])
+            col_index = df['col']-np.min(df['col'])
+            data_array[row_index, col_index] = df[variable]
+            im = axs.flat[i].matshow(data_array, extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
+                                cmap=cmap, origin='upper', norm=norm)
+            axs.flat[i].set_title(month_dict[month], fontsize=7, fontweight='bold', pad=1)
+            self.shapefile.plot(ax=axs.flat[i], facecolor='none', edgecolor='black', linewidth=0.5)
+            axs.flat[i].set_xticks([])
+            axs.flat[i].set_yticks([])
+            axs.flat[i].set_xlim(self.draw_extent[0], self.draw_extent[2])
+            axs.flat[i].set_ylim(self.draw_extent[1], self.draw_extent[3])
+        position = fig.add_axes([0.87, 0.1, 0.05, 0.7])
+        cb = fig.colorbar(im, cax=position, shrink=0.7, pad=0.02)
+        cb.ax.tick_params(labelsize=7, pad=0.5)
+        cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
+        cb.ax.set_title(r'$\mu$g/m$^{3}$', fontdict={"size":10, "color":"k"}, pad=10)
+        formatter = ScalarFormatter()
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-2, 3))
+        cb.formatter = formatter
+        cb.update_ticks()
+        offset_text = cb.ax.yaxis.get_offset_text()
+        offset_text.set_size(7)
+        offset_text.set(va='bottom') 
+        # plt.show()
+        plt.savefig(os.path.join(figure_path), dpi=1000)
+        plt.close()
+    
+    @staticmethod
+    def single_axis_plot(xlab, ylab, figure_path, *data_pairs, **line_settings):
+        """
+        Plot multiple lines on a single axis with legend labels and color settings.
 
-def model_performance(x, y, figure_path):
-    vmax = math.ceil(np.percentile(x, 99))
-    num_points = len(x)
-    R2 = (np.corrcoef(x, y)[0, 1])**2
-    MAE = mean_absolute_error(x, y)
-    RMSE = np.sqrt(mean_squared_error(x, y))
-    MB = np.mean(y)-np.mean(x)
-    print("R2 = ", R2)
-    print("MAE = ", MAE)
-    print("RMSE = ", RMSE)
-    xy = np.vstack([x, y])
-    density = gaussian_kde(xy)(xy)
-    cmax = np.percentile(density, 95)
-    cmin = np.percentile(density, 5)
-    plt.scatter(x, y, c=density, cmap='Spectral_r')
-    plt.colorbar(label='Density')
-    plt.clim(cmin, cmax) 
-    plt.plot([0, vmax], [0, vmax], '--', color='gray')
-    fit = np.polyfit(x, y, 1)
-    fit_fn = np.poly1d(fit)
-    plt.plot(x, fit_fn(x), '-', color='black')
-    plt.text(0.05, 0.95, r'R$^{2}$' + ' = {:.2f}'.format(R2), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
-    plt.text(0.05, 0.90, 'MB = {:.2f}'.format(MB)+ r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
-    plt.text(0.05, 0.85, 'MAE = {:.2f}'.format(MAE) + r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
-    plt.text(0.05, 0.80, 'RMSE = {:.2f}'.format(RMSE) + r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
-    plt.text(0.05, 0.75, 'Y = {:.2f} X + {:.2f}'.format(fit[0], fit[1]), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
-    plt.text(0.05, 0.70, 'N = {}'.format(num_points), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
-    plt.xlim(0, vmax)
-    plt.ylim(0, vmax)
-    plt.xlabel(r'Observed PM$_{2.5}$')
-    plt.ylabel(r'Predicted PM$_{2.5}$')
-    plt.savefig(figure_path, dpi=1000)
-    plt.close()
+        Parameters:
+        - xlab: str, label for the x-axis.
+        - ylab: str, label for the y-axis.
+        - figure_path: str, path to save the figure.
+        - data_pairs: variable number of data pairs (x, y) for each line.
+        - line_settings: keyword arguments for line settings, where each value is a dictionary {'label': 'Line 1', 'color': 'red'}.
+
+        Example:
+        single_axis_plot("X-axis", "Y-axis", "figure.png", 
+                        [1, 2, 3], [4, 5, 6], [1, 2, 3], [7, 8, 9], 
+                        line1={'label': 'Line 1', 'color': 'red'}, line2={'label': 'Line 2', 'color': 'blue'})
+        """
+        plt.xlabel(xlab)
+        plt.ylabel(ylab)
+
+        for i, data_pair in enumerate(data_pairs):
+            x, y = data_pair
+            line_params = line_settings.get(f"line{i+1}", {'label': f"Line {i+1}", 'color': None})
+            plt.plot(x, y, label=line_params['label'], color=line_params['color'])
+
+        plt.legend()
+        plt.savefig(figure_path)
+        # plt.show()
+
+    @staticmethod
+    def model_performance(x, y, figure_path):
+        vmax = math.ceil(np.percentile(x, 99))
+        num_points = len(x)
+        R2 = (np.corrcoef(x, y)[0, 1])**2
+        MAE = mean_absolute_error(x, y)
+        RMSE = np.sqrt(mean_squared_error(x, y))
+        MB = np.mean(y)-np.mean(x)
+        print("R2 = ", R2)
+        print("MAE = ", MAE)
+        print("RMSE = ", RMSE)
+        xy = np.vstack([x, y])
+        density = gaussian_kde(xy)(xy)
+        cmax = np.percentile(density, 95)
+        cmin = np.percentile(density, 5)
+        plt.scatter(x, y, c=density, cmap='Spectral_r')
+        plt.colorbar(label='Density')
+        plt.clim(cmin, cmax) 
+        plt.plot([0, vmax], [0, vmax], '--', color='gray')
+        fit = np.polyfit(x, y, 1)
+        fit_fn = np.poly1d(fit)
+        plt.plot(x, fit_fn(x), '-', color='black')
+        plt.text(0.05, 0.95, r'R$^{2}$' + ' = {:.2f}'.format(R2), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+        plt.text(0.05, 0.90, 'MB = {:.2f}'.format(MB)+ r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+        plt.text(0.05, 0.85, 'MAE = {:.2f}'.format(MAE) + r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+        plt.text(0.05, 0.80, 'RMSE = {:.2f}'.format(RMSE) + r' $\mu$g/m$^{3}$', transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+        plt.text(0.05, 0.75, 'Y = {:.2f} X + {:.2f}'.format(fit[0], fit[1]), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+        plt.text(0.05, 0.70, 'N = {}'.format(num_points), transform=plt.gca().transAxes, fontsize=12, ha='left', va='top')
+        plt.xlim(0, vmax)
+        plt.ylim(0, vmax)
+        plt.xlabel(r'Observed PM$_{2.5}$')
+        plt.ylabel(r'Predicted PM$_{2.5}$')
+        plt.savefig(figure_path, dpi=1000)
+        plt.close()
 
 
 if __name__ == "__main__":    
