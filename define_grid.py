@@ -39,7 +39,8 @@ class Grid_define:
             else:
                 map_shapefile = map_shapefile.to_crs(self.crs)
             self.map_shapefile = map_shapefile
-            self.map_shapefile = self.clip_shapefile()
+            if spatial_extent is not None:
+                self.map_shapefile = self.clip_shapefile()
             self.extent = self.map_shapefile.total_bounds
             self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.extent
             self.col_west = self.lon_to_col(self.lon_west)-1

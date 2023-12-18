@@ -186,24 +186,53 @@ draw_obj = Spatial_drawing(0.1,
 
 
 ## 10. observed and predicted pm2.5 line
-file_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
-file_list = os.listdir(file_dir)
-date_list = []
-pm25_mean = []
-for filename in file_list:
-    df = pd.read_csv(os.path.join(file_dir, filename))
-    date = pd.to_datetime(np.unique(df['date'])[0]).date()
-    pm25 = np.mean(df['PM25'])
-    pm25_mean.append(pm25)
-    date_list.append(date)
-df_pre = pd.DataFrame({'date': date_list, 'PM25':pm25_mean})
-df_pre = df_pre.sort_values(by='date').reset_index(drop=True)
-df_obs = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pm25.csv") 
-df_obs['date'] = pd.to_datetime(df_obs['date'])
-df_obs = df_obs[(df_obs['date']<=pd.to_datetime(grid_obj.end_day, format='%Y-%m-%d')) & (df_obs['date']>=pd.to_datetime(grid_obj.start_day, format='%Y-%m-%d'))]
-df_obs = df_obs.groupby(['date'])['PM25'].mean().reset_index()
+# file_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
+# file_list = os.listdir(file_dir)
+# date_list = []
+# pm25_mean = []
+# for filename in file_list:
+#     df = pd.read_csv(os.path.join(file_dir, filename))
+#     date = pd.to_datetime(np.unique(df['date'])[0]).date()
+#     pm25 = np.mean(df['PM25'])
+#     pm25_mean.append(pm25)
+#     date_list.append(date)
+# df_pre = pd.DataFrame({'date': date_list, 'PM25':pm25_mean})
+# df_pre = df_pre.sort_values(by='date').reset_index(drop=True)
+# df_obs = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pm25.csv") 
+# df_obs['date'] = pd.to_datetime(df_obs['date'])
+# df_obs = df_obs[(df_obs['date']<=pd.to_datetime(grid_obj.end_day, format='%Y-%m-%d')) & (df_obs['date']>=pd.to_datetime(grid_obj.start_day, format='%Y-%m-%d'))]
+# df_obs = df_obs.groupby(['date'])['PM25'].mean().reset_index()
 
-draw_obj.single_axis_plot("Date", r'Daily average PM$_{2.5}$' + r' ($\mu$g/m$^{3}$)',
-                          "/WORK/genggn_work/hechangpei/PM2.5/pm25_line.png",
-                        (df_obs['date'], df_obs['PM25']), (df_pre['date'], df_pre['PM25']), 
-                        line1={'label': r'Observed PM$_{2.5}$', 'color': '#D64531'}, line2={'label': r'Predicted PM$_{2.5}$', 'color': '#25599A'})
+# draw_obj.single_axis_plot("Date", r'Daily average PM$_{2.5}$' + r' ($\mu$g/m$^{3}$)',
+#                           "/WORK/genggn_work/hechangpei/PM2.5/pm25_line.png",
+#                         (df_obs['date'], df_obs['PM25']), (df_pre['date'], df_pre['PM25']), 
+#                         line1={'label': r'Observed PM$_{2.5}$', 'color': '#D64531'}, line2={'label': r'Predicted PM$_{2.5}$', 'color': '#25599A'})
+
+## 11. PM2.5 exposure
+# grid_us_obj = Grid_define(res=0.1, start_day='2023-04-01', 
+#                        end_day='2023-09-30', 
+#                        tmp_dir="/WORK/genggn_work/hechangpei/PM2.5/", 
+#                        shapefile="/WORK/genggn_work/hechangpei/PM2.5/US/US/US.shp", 
+#                        spatial_extent=[-145, 10, -50, 70])
+# pop = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/pop.csv") 
+# pop_us = pd.merge(pop, grid_us_obj.model_grid, on=['row', 'col'])
+# # grid_us_obj.map_shapefile.plot()
+# # plt.show()
+# file_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
+# file_list = os.listdir(file_dir)
+# date_list = []
+# pm25_explosure = []
+# for filename in file_list:
+#     df = pd.read_csv(os.path.join(file_dir, filename))
+#     df = pd.merge(df, pop_us, on=['row', 'col'])
+#     pm25_explosure_day = np.sum(df['PM25']*df['pop']/np.sum(df['pop']))
+#     date = pd.to_datetime(np.unique(df['date'])[0]).date()
+#     pm25_explosure.append(pm25_explosure_day)
+#     date_list.append(date)
+# df_exposure = pd.DataFrame({'date': date_list, 'PM25':pm25_explosure})
+# df_exposure = df_exposure.sort_values(by='date').reset_index(drop=True)
+# draw_obj.single_axis_plot("Date", r'PM$_{2.5}$ exposure' + r' ($\mu$g/m$^{3}$)',
+#                           "/WORK/genggn_work/hechangpei/PM2.5/pm25_exposure.png",
+#                         (df_exposure ['date'], df_exposure ['PM25']),
+#                         line1={'label': r'PM$_{2.5}$ exposure', 'color': '#D64531'})
+# df_exposure.to_csv('/WORK/genggn_work/hechangpei/PM2.5/pm25_exposure.csv', index=False)
