@@ -254,10 +254,9 @@ class Spatial_drawing:
         plt.savefig(os.path.join(figure_path), dpi=1000)
         plt.close()
     
-    def draw_single_map(self, file_path, variable, title, figure_path):
+    def draw_single_map(self, df, variable, title, figure_path, cb_title):
         fig, axs = plt.subplots(figsize=(6, 4))
         fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
-        df = pd.read_csv(file_path)
         lon_west = self.col_to_lon(np.min(df['col']))
         lon_east = self.col_to_lon(np.max(df['col']))
         lat_north = self.row_to_lat(np.min(df['row']))
@@ -286,7 +285,7 @@ class Spatial_drawing:
         cb = plt.colorbar(im, ax=axs, shrink=0.7, pad=0.04)
         cb.ax.tick_params(labelsize=10, pad=0.5)
         cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
-        cb.ax.set_title(r'$\mu$g/m$^{3}$', fontdict={"size":10, "color":"k"}, pad=10)
+        cb.ax.set_title(cb_title, fontdict={"size":10, "color":"k"}, pad=10)
         formatter = ScalarFormatter()
         formatter.set_scientific(True)
         formatter.set_powerlimits((-2, 3))
@@ -298,10 +297,37 @@ class Spatial_drawing:
         plt.savefig(figure_path, dpi=1000)        
         plt.close()
         
-    def draw_daily_map(self, file_path, variable, title, vmin, vmax, figure_path):
+    def draw_single_map_point(self, data, variable, figure_path, cb_title, vmin=None, vmax=None, title=None):
+        # geometry = [Point(xy) for xy in zip(data['Longitude'], data['Latitude'])]
+        # data = gpd.GeoDataFrame(data, geometry=geometry, crs='EPSG:4326')
+        # data = data[data.geometry.within(self.shapefile.geometry.unary_union)]
         fig, axs = plt.subplots(figsize=(6, 4))
         fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
-        df = pd.read_csv(file_path)
+        if vmin is None:
+            vmax = data[variable].quantile(0.99)
+            vmin = data[variable].quantile(0.01)
+            vmax = self.transfer_draw(vmax, vmin, 'vmax')
+            vmin = self.transfer_draw(vmax, vmin, 'vmin')
+        norm = Normalize(vmin=vmin, vmax=vmax+(vmax-vmin)*0.05, clip=True)
+        axs.set_title(title, fontsize=10, fontweight='bold', pad=3)
+        axs.set_xticks([])
+        axs.set_yticks([])
+        axs.set_xlim(self.draw_extent[0], self.draw_extent[2])
+        axs.set_ylim(self.draw_extent[1], self.draw_extent[3])
+        cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[0]], N=100)
+        im = axs.scatter(data.iloc[:, 0], data.iloc[:, 1], c= data[variable], cmap=cmap, s=10, marker='o', edgecolors='none', norm=norm)
+        self.shapefile.plot(ax=axs, facecolor='none', edgecolor='black', linewidth=0.5)
+        cb = plt.colorbar(im, ax=axs, shrink=0.7, pad=0.04)
+        cb.ax.tick_params(labelsize=10, pad=0.5)
+        cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
+        cb.ax.set_title(cb_title, fontdict={"size":10, "color":"k"}, pad=10)
+        # plt.show()
+        plt.savefig(figure_path, dpi=1000)
+        plt.close()
+
+    def draw_daily_map(self, df, variable, title, vmin, vmax, figure_path):
+        fig, axs = plt.subplots(figsize=(6, 4))
+        fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
         lon_west = self.col_to_lon(np.min(df['col']))
         lon_east = self.col_to_lon(np.max(df['col']))
         lat_north = self.row_to_lat(np.min(df['row']))
@@ -425,8 +451,10 @@ class Spatial_drawing:
             x, y = data_pair
             line_params = line_settings.get(f"line{i+1}")
             plt.plot(x, y, label=line_params['label'], color=line_params['color'])
-
-        plt.legend()
+        if len(data_pairs) ==1:
+            plt.legend().set_visible(False)
+        else:
+            plt.legend()
         plt.savefig(figure_path)
         # plt.show()
 
