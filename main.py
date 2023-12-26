@@ -22,9 +22,7 @@ grid_obj = Grid_define(res=0.1, start_day='2023-04-01',
                        shapefile="/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp", 
                        spatial_extent=[-145, 10, -50, 70])
 process_obj = Preprocess_data(grid_obj)
-draw_obj = Spatial_drawing(0.1,
-                          [-145, 10, -50, 70],
-                          "/WORK/genggn_work/hechangpei/PM2.5/China_and_World_Map_shapefiles/World/polygon/World_polygon.shp")
+draw_obj = Spatial_drawing(grid_obj)
                             
 # # 1. download varibles
 # download_path = '/WORK/genggn_work/hechangpei/PM2.5/AOD/'
@@ -183,10 +181,20 @@ draw_obj = Spatial_drawing(0.1,
 # draw_obj.figure_to_video(input_dir=input_dir, output_path=output_path)
 
 ## 8. monthly map
-# draw_obj.draw_monthly_map(variable='PM25', vmin=0, vmax=100, 
+# file_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
+# file_list = os.listdir(file_dir)
+# df_all = []
+# for filename in file_list:
+#     df = pd.read_csv(os.path.join(file_dir, filename))
+#     df = pd.merge(df, grid_obj.model_grid, on=['row', 'col'])
+#     df_all.append(df)
+# df_all = pd.concat(df_all, ignore_index=True)
+# df_all['month'] = pd.to_datetime(df_all['date']).dt.month
+# draw_obj.draw_monthly_map(df_all,
+#                           variable='PM25', vmin=0, vmax=100, 
 #                           month_dict={'4': 'Apr', '5': 'May', '6': 'Jun', '7': 'Jul', '8': 'Aug', '9': 'Sep'},
-#                           data_dir='/WORK/genggn_work/hechangpei/PM2.5/predict_result',
-#                           figure_path="/WORK/genggn_work/hechangpei/PM2.5/month_distribution.png")
+#                           figure_path="/WORK/genggn_work/hechangpei/PM2.5/month_distribution.png",
+#                           cb_title=r'($\mu$g/m$^{3}$)')
 
 # # 9. observed and predicted pm2.5 line
 # grid_us_obj = Grid_define(res=0.1, start_day='2023-04-01', 
@@ -287,10 +295,40 @@ draw_obj = Spatial_drawing(0.1,
 # df_all = pd.concat(df_all, ignore_index=True)
 # df_spatial = df_all.groupby(['row', 'col'])['PM25'].apply(lambda x: 100*(x > 15).sum()/len(x)).reset_index(name='above_AQG_day_fraction')
 # draw_obj.draw_single_map(df_spatial, 'above_AQG_day_fraction', None, '/WORK/genggn_work/hechangpei/PM2.5/exposure_risk.png', '%')
-
 # df_temporal = df_all.groupby(['date'])['PM25'].apply(lambda x: 100*(x > 15).sum()/len(x)).reset_index(name='above_AQG_area_fraction')
 # draw_obj.single_axis_plot("Date", 'Percentage of areas (%)',
 #                           "/WORK/genggn_work/hechangpei/PM2.5/AQG_area_line.png",
 #                         (pd.to_datetime(df_temporal['date']), df_temporal['above_AQG_area_fraction']),
 #                         line1={'label': None, 'color': '#D64531'})
+
+## 12. US monthly pm2.5
+grid_us_obj = Grid_define(res=0.1, start_day='2023-04-01', 
+                       end_day='2023-09-30', 
+                       tmp_dir="/WORK/genggn_work/hechangpei/PM2.5/", 
+                       shapefile="/WORK/genggn_work/hechangpei/PM2.5/US/US/US.shp", 
+                       spatial_extent=[-130 , 24, -65, 50])
+draw_us_obj = Spatial_drawing(grid_us_obj)
+file_dir = '/WORK/genggn_work/hechangpei/PM2.5/predict_result'
+file_list = os.listdir(file_dir)
+df_us = []
+for filename in file_list:
+    df = pd.read_csv(os.path.join(file_dir, filename))
+    df = pd.merge(df, grid_us_obj.model_grid, on=['row', 'col'])
+    df_us.append(df)
+df_us = pd.concat(df_us, ignore_index=True)
+df_us['month'] = pd.to_datetime(df_us['date']).dt.month
+draw_us_obj.draw_monthly_map(df_us,
+                          variable='PM25', vmin=0, vmax=30, 
+                          month_dict={'4': 'Apr', '5': 'May', '6': 'Jun', '7': 'Jul', '8': 'Aug', '9': 'Sep'},
+                          figure_path="/WORK/genggn_work/hechangpei/PM2.5/us_month_distribution.png",
+                          cb_title=r'($\mu$g/m$^{3}$)')
+
+## 13. monthly wildfire 
+# df_burn = pd.read_csv("/WORK/genggn_work/hechangpei/PM2.5/process_result/burn.csv") 
+# draw_obj.draw_monthly_map(df_burn,
+#                           variable='burn',
+#                           month_dict={'4': 'Apr', '5': 'May', '6': 'Jun', '7': 'Jul', '8': 'Aug', '9': 'Sep'},
+#                           figure_path="/WORK/genggn_work/hechangpei/PM2.5/burn_monthly.png",
+#                           cb_title=r'(km$^{2}$·days)')
+
 

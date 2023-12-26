@@ -15,7 +15,7 @@ class Grid_define:
     shapefile: the shapefile of interesting study region (.shp)
     '''
 
-    extent = (-180, -90, 180, 90)
+    spatial_extent = (-180, -90, 180, 90)
     crs = 'EPSG:4326'
 
     def __init__(self, res, start_day, end_day, tmp_dir, shapefile=None, spatial_extent=None):
@@ -24,15 +24,15 @@ class Grid_define:
         self.end_day = end_day
         self.tmp_dir = tmp_dir
         self.shapefile = shapefile
-        self.spatial_extent = spatial_extent
+        
         if self.shapefile is None:
-            self.extent = self.extent
-            self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.extent
+            self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.spatial_extent
             self.col_west = self.lon_to_col(self.lon_west)
             self.col_east = self.lon_to_col(self.lon_east)
             self.row_north = self.lat_to_row(self.lat_north)
             self.row_south = self.lat_to_row(self.lat_south)
         else:
+            self.spatial_extent = spatial_extent
             map_shapefile = gpd.read_file(self.shapefile)
             if map_shapefile.crs is None:
                 map_shapefile = map_shapefile.set_crs(self.crs)
@@ -41,8 +41,7 @@ class Grid_define:
             self.map_shapefile = map_shapefile
             if spatial_extent is not None:
                 self.map_shapefile = self.clip_shapefile()
-            self.extent = self.map_shapefile.total_bounds
-            self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.extent
+            self.lon_west, self.lat_south, self.lon_east, self.lat_north = self.spatial_extent
             self.col_west = self.lon_to_col(self.lon_west)-1
             self.col_east = self.lon_to_col(self.lon_east)+1
             self.row_north = self.lat_to_row(self.lat_north)-1

@@ -163,16 +163,10 @@ class Spatial_drawing:
                     ['#F8F9CD', '#D6EBBA', '#A0D5A6', '#619B9F', '#466490', '#414781', '#616065']
                     ]
     
-    def __init__(self, res, draw_extent, map_path) -> None:
-        self.res = res
-        self.map_path = map_path
-        self.draw_extent = draw_extent
-        self.shapefile = gpd.read_file(self.map_path)
-        if self.shapefile.crs is None:
-            self.shapefile = self.shapefile.set_crs('EPSG:4326')
-            self.shapefile = self.shapefile.to_crs(self.crs)
-        else:
-            self.shapefile = self.shapefile.to_crs(self.crs)
+    def __init__(self, grid_obj) -> None:
+        self.res = grid_obj.res
+        self.draw_extent = grid_obj.spatial_extent
+        self.shapefile = grid_obj.map_shapefile
             
     def col_to_lon(self, col):
         lon = self.res/2+(col-1)*self.res-180
@@ -254,16 +248,16 @@ class Spatial_drawing:
         plt.savefig(os.path.join(figure_path), dpi=1000)
         plt.close()
     
-    def draw_single_map(self, df, variable, title, figure_path, cb_title):
+    def draw_single_map(self, data, variable, title, figure_path, cb_title):
         fig, axs = plt.subplots(figsize=(6, 4))
         fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.05, hspace=0)
-        lon_west = self.col_to_lon(np.min(df['col']))
-        lon_east = self.col_to_lon(np.max(df['col']))
-        lat_north = self.row_to_lat(np.min(df['row']))
-        lat_south = self.row_to_lat(np.max(df['row']))
+        lon_west = self.col_to_lon(np.min(data['col']))
+        lon_east = self.col_to_lon(np.max(data['col']))
+        lat_north = self.row_to_lat(np.min(data['row']))
+        lat_south = self.row_to_lat(np.max(data['row']))
         height = round((lat_north-lat_south)/self.res)+1
         width = round((lon_east-lon_west)/self.res)+1
-        data = df.groupby(['row', 'col'])[variable].mean().reset_index()
+        data = data.groupby(['row', 'col'])[variable].mean().reset_index()
         data_array = np.full((height, width), fill_value=np.nan)
         row_index = data['row']-np.min(data['row'])
         col_index = data['col']-np.min(data['col'])
@@ -280,8 +274,6 @@ class Spatial_drawing:
         self.shapefile.plot(ax=axs, facecolor='none', edgecolor='black', linewidth=0.5)
         axs.set_xticks([])
         axs.set_yticks([])
-        axs.set_xlim(self.draw_extent[0], self.draw_extent[2])
-        axs.set_ylim(self.draw_extent[1], self.draw_extent[3])
         cb = plt.colorbar(im, ax=axs, shrink=0.7, pad=0.04)
         cb.ax.tick_params(labelsize=10, pad=0.5)
         cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
@@ -364,34 +356,33 @@ class Spatial_drawing:
         plt.savefig(figure_path, dpi=1000) 
         plt.close()
         
-    def draw_monthly_map(self, variable, vmin, vmax, month_dict, data_dir, figure_path):
-        file_list = os.listdir(data_dir)
+    def draw_monthly_map(self, data, variable, month_dict, figure_path, cb_title, vmin=None, vmax=None):
         month_list = month_dict.keys()
         rows = int(math.sqrt(len(month_list)))
         cols = int(math.sqrt(len(month_list)))
-        if len(month_list) % rows != 0:
+        if (rows*cols)<len(month_list):
             cols += 1
         if (rows*cols)<len(month_list):
             rows += 1
         hw_ratio = (rows*(self.draw_extent[3]-self.draw_extent[1]))/(cols*(self.draw_extent[2]-self.draw_extent[0]))
         fig, axs = plt.subplots(rows, cols, figsize=(cols*2, cols*hw_ratio*2))
-        fig.subplots_adjust(left=0.15, right=0.85, top=0.85, bottom=0.15, wspace=0.05, hspace=0.1)
+        fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0, hspace=0.2)
         exceed_num = rows*cols-len(month_list)
         if exceed_num>0:
             for index in range(exceed_num):
                 axs.flat[-index-1].set_visible(False)  
+        if vmin is None:
+            vmax = data[variable].quantile(0.99)
+            vmin = data[variable].quantile(0.01)
+            vmax = self.transfer_draw(vmax, vmin, 'vmax')
+            vmin = self.transfer_draw(vmax, vmin, 'vmin')
         norm = Normalize(vmin=vmin, vmax=vmax+(vmax-vmin)*0.05, clip=True)
         cmap = LinearSegmentedColormap.from_list('colormap', [plt.cm.colors.hex2color(hex_color) for hex_color in self.color_scheme[0]], N=100)
         for i, month in enumerate(month_list):
-            # date_range = list(pd.date_range(start=f'{year}-{month}-01', end=f'{year}-{month + 1}-01') - pd.Timedelta(days=1))
-            # file_month_list = [f"{date.date()}.csv" for date in date_range]
-            file_month_list = [file for file in file_list if f'2023-{str(month).zfill(2)}' in file]
-            df_month = []
-            for filename in file_month_list:
-                df = pd.read_csv(os.path.join(data_dir, filename))
-                df_month.append(df)
-            df_month = pd.concat(df_month, axis=0, ignore_index=True)
-            df = df_month.groupby(['row', 'col'])[variable].mean().reset_index()
+            axs.flat[i].set_xlim(self.draw_extent[0], self.draw_extent[2])
+            axs.flat[i].set_ylim(self.draw_extent[1], self.draw_extent[3])
+            df = data[data['month']==int(month)]
+            df = df.groupby(['row', 'col'])[variable].mean().reset_index()
             lon_west = self.col_to_lon(np.min(df['col']))
             lon_east = self.col_to_lon(np.max(df['col']))
             lat_north = self.row_to_lat(np.min(df['row']))
@@ -402,19 +393,18 @@ class Spatial_drawing:
             row_index = df['row']-np.min(df['row'])
             col_index = df['col']-np.min(df['col'])
             data_array[row_index, col_index] = df[variable]
-            im = axs.flat[i].matshow(data_array, extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
-                                cmap=cmap, origin='upper', norm=norm)
-            axs.flat[i].set_title(month_dict[month], fontsize=7, fontweight='bold', pad=1)
+            im = axs.flat[i].matshow(data_array, 
+                                     extent=(lon_west-self.res/2, lon_east+self.res/2, lat_south-self.res/2, lat_north+self.res/2), 
+                                     cmap=cmap, origin='upper', norm=norm)
+            axs.flat[i].set_title(month_dict[month], fontsize=7, fontweight='bold', pad=2)
             self.shapefile.plot(ax=axs.flat[i], facecolor='none', edgecolor='black', linewidth=0.5)
             axs.flat[i].set_xticks([])
             axs.flat[i].set_yticks([])
-            axs.flat[i].set_xlim(self.draw_extent[0], self.draw_extent[2])
-            axs.flat[i].set_ylim(self.draw_extent[1], self.draw_extent[3])
-        position = fig.add_axes([0.87, 0.1, 0.05, 0.7])
-        cb = fig.colorbar(im, cax=position, shrink=0.7, pad=0.02)
+        position = fig.add_axes([0.90, 0.1, 0.02, 0.8])
+        cb = fig.colorbar(im, cax=position, pad=0.02)
         cb.ax.tick_params(labelsize=7, pad=0.5)
         cb.set_ticks(np.arange(vmin, vmax+(vmax-vmin)*0.01, (vmax-vmin)/5))
-        cb.ax.set_title(r'$\mu$g/m$^{3}$', fontdict={"size":10, "color":"k"}, pad=10)
+        cb.ax.set_title(cb_title, fontdict={"size":7, "color":"k"}, pad=4)
         formatter = ScalarFormatter()
         formatter.set_scientific(True)
         formatter.set_powerlimits((-2, 3))
